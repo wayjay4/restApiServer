@@ -12,6 +12,7 @@ import (
   "github.com/rs/cors"
 )
 
+// create a todo struct
 type todo struct {
   id string
   title string
@@ -42,7 +43,8 @@ func main(){
   router := httprouter.New()
   router.GET("/todo/:key", show)
   router.GET("/todo", show)
-  router.PUT("/todo/:key/:title/:completed", update)
+  router.PUT("/todo/:key/:title/:completed", add)
+  router.PUT("/update/todo/:key/:title/:completed", update)
   router.DELETE("/todo/:key", remove)
 
   // get and set CORS
@@ -84,7 +86,7 @@ func show(w http.ResponseWriter, r *http.Request, p httprouter.Params){
     sizeOfStore := len(m)
 
     // iterate through data map, make values into json string, save in result
-    result := "{\"data\": ["
+    result := "{\"todos\": ["
     for key := range m {
       sp := s.data[key]
       if i < sizeOfStore-1 {
@@ -102,7 +104,7 @@ func show(w http.ResponseWriter, r *http.Request, p httprouter.Params){
     // return result to caller
     fmt.Fprintf(w, "%s", result)
 
-    return
+    return;
   }
 
   // get key=data pair, make json string, and return result to caller
@@ -111,15 +113,14 @@ func show(w http.ResponseWriter, r *http.Request, p httprouter.Params){
   fmt.Fprintf(w, "{\"id\":\"%s\", \"title\":\"%s\", \"completed\":\"%s\"}", sp.id, sp.title, sp.completed)
   s.m.RUnlock()
 
-  return
+  return;
 }
 
-func update(w http.ResponseWriter, r *http.Request, p httprouter.Params){
+func add(w http.ResponseWriter, r *http.Request, p httprouter.Params){
   // get and set key, title, completed, and testTitle
   k := p.ByName("key")
   title := p.ByName("title")
   completed := p.ByName("completed")
-  testTitle := p.ByName("testTitle")
 
   myTodo := todo{
     id: p.ByName("key"),
@@ -127,13 +128,37 @@ func update(w http.ResponseWriter, r *http.Request, p httprouter.Params){
     completed: p.ByName("completed"),
   }
 
-  // update data in the store with key value
+  // add data in the store with key value
   s.m.RLock()
   s.data[k] = myTodo
   s.m.RUnlock()
 
   // return result
-  fmt.Fprintf(w, "Updated: data[%s] = %s, completed:%s [testTitle: %s]", k, title, completed, testTitle)
+  fmt.Fprintf(w, "Added: data[%s] = %s, completed:%s", k, title, completed)
+
+  return;
+}
+
+func update(w http.ResponseWriter, r *http.Request, p httprouter.Params){
+  // get and set key, title, completed, and testTitle
+  k := p.ByName("key")
+  title := p.ByName("title")
+  completed := p.ByName("completed")
+
+  myTodo := s.data[k]
+
+  // update data in the store with key value
+  s.m.RLock()
+  if title != "" {
+    myTodo.title = title;
+  }
+
+  myTodo.completed = completed;
+
+  s.data[k] = myTodo
+  s.m.RUnlock()
+
+  return;
 }
 
 func remove(w http.ResponseWriter, r *http.Request, p httprouter.Params){
@@ -148,8 +173,11 @@ func remove(w http.ResponseWriter, r *http.Request, p httprouter.Params){
 
   // return result
   fmt.Fprintf(w, "Deleted: data[%s] = %s", k, v)
+
+  return;
 }
 
+// this func used for developer reference only
 func array_map_iterators(){
   arr := []string{"a", "b", "c"}
 
@@ -164,4 +192,6 @@ func array_map_iterators(){
   for key, value := range m {
     fmt.Println("key:", key, "value:", value)
   }
+
+  return;
 }
