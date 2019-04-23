@@ -6,15 +6,21 @@ import (
   "log"
   "net/http"
   "sync"
-  "encoding/json"
+  //"encoding/json"
 
   "github.com/julienschmidt/httprouter"
   "github.com/rs/cors"
 )
 
+type todo struct {
+  id string
+  title string
+  completed string
+}
+
 // create a store struct
 type store struct {
-  data map[string]string
+  data map[string]todo
   m sync.RWMutex
 }
 
@@ -22,7 +28,7 @@ type store struct {
 var (
   addr = flag.String("addr", ":8080", "http service address")
   s = store{
-    data: map[string]string{},
+    data: map[string]todo{},
     m: sync.RWMutex{},
   }
 )
@@ -34,10 +40,10 @@ func main(){
   // get and set router
   // then set the routes and actions
   router := httprouter.New()
-  router.GET("/entry/:key", show)
-  router.GET("/list", show)
-  router.PUT("/entry/:key/:title/:completed", update)
-  router.DELETE("/entry/:key", remove)
+  router.GET("/todo/:key", show)
+  router.GET("/todo", show)
+  router.PUT("/todo/:key/:title/:completed", update)
+  router.DELETE("/todo/:key", remove)
 
   // get and set CORS
   // then set options to allow cross origin and allowed methods for server
@@ -68,10 +74,30 @@ func show(w http.ResponseWriter, r *http.Request, p httprouter.Params){
   // if there is no key, then return 'list' of contents of store
   if k == "" {
 
-    // convert data to json string and set to result
+    // begin: convert data to json string and set to result
     s.m.RLock()
-    result, _ := json.Marshal(s.data)
+    // get data
+    m := s.data
+
+    // set index and sizeOfStore
+    i := 0
+    sizeOfStore := len(m)
+
+    // iterate through data map, make values into json string, save in result
+    result := "{\"data\": ["
+    for key := range m {
+      sp := s.data[key]
+      if i < sizeOfStore-1 {
+        result = result + "{\"id\":\""+sp.id+"\", \"title\":\""+sp.title+"\", \"completed\":\""+sp.completed+"\"},"
+      } else {
+        result = result + "{\"id\":\""+sp.id+"\", \"title\":\""+sp.title+"\", \"completed\":\""+sp.completed+"\"}"
+      }
+
+      i++
+    }
+    result = result + "]}"
     s.m.RUnlock()
+    // end: convert data to json string and set to result
 
     // return result to caller
     fmt.Fprintf(w, "%s", result)
@@ -79,9 +105,10 @@ func show(w http.ResponseWriter, r *http.Request, p httprouter.Params){
     return
   }
 
-  // get key=data pair and return result to caller
+  // get key=data pair, make json string, and return result to caller
   s.m.RLock()
-  fmt.Fprintf(w, "Read entry: data[%s] = %s", k, s.data[k])
+  sp := s.data[k]
+  fmt.Fprintf(w, "{\"id\":\"%s\", \"title\":\"%s\", \"completed\":\"%s\"}", sp.id, sp.title, sp.completed)
   s.m.RUnlock()
 
   return
@@ -94,9 +121,15 @@ func update(w http.ResponseWriter, r *http.Request, p httprouter.Params){
   completed := p.ByName("completed")
   testTitle := p.ByName("testTitle")
 
+  myTodo := todo{
+    id: p.ByName("key"),
+    title: p.ByName("title"),
+    completed: p.ByName("completed"),
+  }
+
   // update data in the store with key value
   s.m.RLock()
-  s.data[k] = title
+  s.data[k] = myTodo
   s.m.RUnlock()
 
   // return result
@@ -115,4 +148,20 @@ func remove(w http.ResponseWriter, r *http.Request, p httprouter.Params){
 
   // return result
   fmt.Fprintf(w, "Deleted: data[%s] = %s", k, v)
+}
+
+func array_map_iterators(){
+  arr := []string{"a", "b", "c"}
+
+  for index, value := range arr {
+    fmt.Println("index:", index, "value:", value)
+  }
+
+  m := make(map[string]string)
+  m["a"] = "alpha"
+  m["b"] = "beta"
+
+  for key, value := range m {
+    fmt.Println("key:", key, "value:", value)
+  }
 }
